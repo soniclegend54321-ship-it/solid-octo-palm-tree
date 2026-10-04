@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env/.env.txt
+
+# Firebase service account (SENSITIVE — never commit)
+backend/electronic-repair-hub-firebase-adminsdk-*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
