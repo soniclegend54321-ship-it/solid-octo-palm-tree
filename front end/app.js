@@ -73,6 +73,14 @@ const deviceModels = {
   other: ["Other"]
 };
 
+const estimatedPrices = {
+  mobile: "$50 - $150",
+  laptop: "$100 - $300",
+  computer: "$80 - $250",
+  television: "$100 - $400",
+  other: "Varies"
+};
+
 function populateModels(deviceSelectId, modelSelectId, groupSelectId) {
   const deviceSelect = $(`#${deviceSelectId}`);
   const modelSelect = $(`#${modelSelectId}`);
@@ -84,15 +92,28 @@ function populateModels(deviceSelectId, modelSelectId, groupSelectId) {
     const device = deviceSelect.value;
     modelSelect.innerHTML = '<option value="">Select model...</option>';
     if (device && deviceModels[device]) {
-      modelGroup.classList.remove("hidden");
+      modelSelect.disabled = false;
       deviceModels[device].forEach(model => {
         const opt = document.createElement("option");
         opt.value = model;
         opt.textContent = model;
         modelSelect.appendChild(opt);
       });
+      
+      if (deviceSelectId === "book-device") {
+        const estDisplay = $("#estimated-price-display");
+        const estAmount = $("#estimated-price-amount");
+        if (estDisplay && estAmount) {
+          estAmount.textContent = estimatedPrices[device] || "Varies";
+          estDisplay.classList.remove("hidden");
+        }
+      }
     } else {
-      modelGroup.classList.add("hidden");
+      modelSelect.disabled = true;
+      modelSelect.innerHTML = '<option value="">First select a device...</option>';
+      if (deviceSelectId === "book-device") {
+        $("#estimated-price-display")?.classList.add("hidden");
+      }
     }
   });
 }
@@ -277,6 +298,36 @@ window.addEventListener("scroll", () => {
 //  HERO STATS COUNTER ANIMATION
 // ════════════════════════════════════════════════════════
 
+
+// ════════════════════════════════════════════════════════
+//  AUTH UI UPDATE
+// ════════════════════════════════════════════════════════
+function updateAuthUI(user) {
+  if (user) {
+    // User is signed in — show user menu, hide auth buttons
+    authBtns.classList.add("hidden");
+    userMenu.classList.remove("hidden");
+
+    // Set initials in avatar
+    const name = user.displayName || user.email || "U";
+    const parts = name.split(" ");
+    const initials = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+    userInitials.textContent = initials;
+
+    // Show/hide dashboard "New request" button based on role
+    const dashNewBtn = $("#dash-new-repair");
+    if (dashNewBtn) {
+      dashNewBtn.style.display = currentUserRole === "technician" ? "none" : "";
+    }
+  } else {
+    // User is signed out — show auth buttons, hide user menu
+    authBtns.classList.remove("hidden");
+    userMenu.classList.add("hidden");
+    userInitials.textContent = "U";
+  }
+}
 
 // Listen for Firebase auth state changes
 if (auth) {
@@ -512,6 +563,8 @@ if (bookForm) {
           address,
           phone,
           status: "requested",
+          statusTimestamps: { requested: new Date().toISOString() },
+          price: null,
           technicianId: null,
           technicianName: null,
           createdAt: new Date().toISOString(),
@@ -545,7 +598,7 @@ const STATUS_LABELS = {
 };
 
 
-function renderStatusTimeline(currentStatus) {
+function renderStatusTimeline(currentStatus, statusTimestamps = {}) {
   const idx = STATUS_ORDER.indexOf(currentStatus);
   return `
     <div class="timeline">
@@ -561,10 +614,17 @@ function renderStatusTimeline(currentStatus) {
     if (s === "repaired") details = "Repair completed successfully.";
     if (s === "completed") details = "Device returned to customer.";
 
+    let timeHtml = "";
+    if (statusTimestamps[s]) {
+       const d = new Date(statusTimestamps[s]);
+       timeHtml = `<div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">${d.toLocaleString()}</div>`;
+    }
+
     return `
           <div class="timeline-step ${cls}">
             <h4>${STATUS_LABELS[s]}</h4>
             <p style="margin:0;font-weight:500;">${details}</p>
+            ${timeHtml}
           </div>`;
   }).join("")}
     </div>`;
@@ -638,8 +698,12 @@ if (trackBtn) {
               <label style="color:var(--ink-muted);font-size:14px;display:block;margin-bottom:4px;">Submitted</label>
               <p style="margin:0;font-weight:500;">${createdDate}</p>
             </div>
+            <div>
+              <label style="color:var(--ink-muted);font-size:14px;display:block;margin-bottom:4px;">Price</label>
+              <p style="margin:0;font-weight:500;color:var(--primary);">${found.price || "Estimated: " + (estimatedPrices[found.deviceType] || "Varies")}</p>
+            </div>
           </div>
-          ${renderStatusTimeline(found.status)}
+          ${renderStatusTimeline(found.status, found.statusTimestamps || {})}
         </div>`;
       lucide.createIcons();
     } else {
@@ -750,8 +814,9 @@ function renderRequestCard(r, showAccept = false) {
     const currentIdx = STATUS_ORDER.indexOf(r.status);
     const nextStatus = STATUS_ORDER[currentIdx + 1];
     if (nextStatus) {
-      statusControls = `< button class="btn btn--outline btn--sm update-status-btn" data - id="${r.id}" data - status="${nextStatus}" data - repair - id="${r.repairId}" > Mark ${ STATUS_LABELS[nextStatus] }</button > `;
+      statusControls = `<button class="btn btn--outline btn--sm update-status-btn" data-id="${r.id}" data-status="${nextStatus}" data-repair-id="${r.repairId}">Mark ${STATUS_LABELS[nextStatus]}</button>`;
     }
+    statusControls += ` <button class="btn btn--outline btn--sm set-price-btn" data-id="${r.id}" data-repair-id="${r.repairId}">${r.price ? 'Update Price (' + r.price + ')' : 'Set Price'}</button>`;
   }
 
   if (showAccept) {
@@ -774,6 +839,7 @@ function renderRequestCard(r, showAccept = false) {
       <td><i data-lucide="${deviceIcons[r.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${r.deviceType?.charAt(0).toUpperCase() + r.deviceType?.slice(1)}${r.deviceModel ? ` (${r.deviceModel})` : ''}</td>
       <td>
         <span class="${getStatusBadgeClass(r.status)}">${STATUS_LABELS[r.status] || r.status}</span>
+        ${r.price ? `<div style="font-size:12px;color:var(--primary);margin-top:4px;">Price: ${r.price}</div>` : ''}
       </td>
       <td>${createdDate}</td>
       ${ isTech ? `<td>${statusControls}</td>` : '' }
@@ -792,6 +858,8 @@ async function acceptRequest(docId, repairId) {
     localRequests[idx].status = "accepted";
     localRequests[idx].technicianId = currentUser?.uid || "tech-demo";
     localRequests[idx].technicianName = currentUser?.displayName || "Technician";
+    if (!localRequests[idx].statusTimestamps) localRequests[idx].statusTimestamps = {};
+    localRequests[idx].statusTimestamps.accepted = new Date().toISOString();
     localRequests[idx].updatedAt = new Date().toISOString();
     localStorage.setItem("repairRequests", JSON.stringify(localRequests));
   }
@@ -826,6 +894,8 @@ document.addEventListener("click", async (e) => {
       const idx = localRequests.findIndex((r) => r.repairId === repairId);
       if (idx !== -1) {
         localRequests[idx].status = newStatus;
+        if (!localRequests[idx].statusTimestamps) localRequests[idx].statusTimestamps = {};
+        localRequests[idx].statusTimestamps[newStatus] = new Date().toISOString();
         localRequests[idx].updatedAt = new Date().toISOString();
         localStorage.setItem("repairRequests", JSON.stringify(localRequests));
       }
@@ -834,6 +904,44 @@ document.addEventListener("click", async (e) => {
     loadDashboard();
   } catch (err) {
     showToast(err.message || "Failed to update status", "error");
+  }
+});
+
+// ── Price update (technician) ──
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".set-price-btn");
+  if (!btn) return;
+
+  const docId = btn.dataset.id;
+  const repairId = btn.dataset.repairId;
+  const price = prompt(`Enter price for repair ${repairId} (e.g. $150):`);
+  
+  if (!price) return;
+  
+  btn.classList.add("btn--loading");
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    if (backendAvailable && idToken && docId) {
+      await api(`/requests/${docId}/price`, {
+        method: "PATCH",
+        body: JSON.stringify({ price }),
+      });
+    } else {
+      const localRequests = JSON.parse(localStorage.getItem("repairRequests") || "[]");
+      const idx = localRequests.findIndex((r) => r.repairId === repairId);
+      if (idx !== -1) {
+        localRequests[idx].price = price;
+        localRequests[idx].updatedAt = new Date().toISOString();
+        localStorage.setItem("repairRequests", JSON.stringify(localRequests));
+      }
+    }
+    showToast(`Price updated for ${repairId}`);
+    loadDashboard();
+  } catch (err) {
+    showToast(err.message || "Failed to update price", "error");
+    btn.classList.remove("btn--loading");
+    btn.textContent = "Set Price";
   }
 });
 
@@ -849,10 +957,17 @@ function seedDemoData() {
       customerName: "Rahul Sharma",
       customerEmail: "rahul@example.com",
       deviceType: "laptop",
+      deviceModel: "Dell XPS",
       problem: "Laptop is not powering on. Tried different chargers but no response.",
       address: "123 MG Road, Mumbai",
       phone: "+91 9876543210",
       status: "in-progress",
+      statusTimestamps: {
+        requested: "2026-10-01T10:30:00Z",
+        accepted: "2026-10-02T09:00:00Z",
+        "in-progress": "2026-10-03T14:00:00Z"
+      },
+      price: "$180",
       technicianId: "tech-1",
       technicianName: "Technician A",
       createdAt: "2026-10-01T10:30:00Z",
@@ -864,10 +979,15 @@ function seedDemoData() {
       customerName: "Rahul Sharma",
       customerEmail: "rahul@example.com",
       deviceType: "mobile",
+      deviceModel: "iPhone 15",
       problem: "Phone screen cracked after a drop. Touch not working on bottom half.",
       address: "123 MG Road, Mumbai",
       phone: "+91 9876543210",
       status: "requested",
+      statusTimestamps: {
+        requested: "2026-10-04T09:15:00Z"
+      },
+      price: null,
       technicianId: null,
       technicianName: null,
       createdAt: "2026-10-04T09:15:00Z",
@@ -879,10 +999,19 @@ function seedDemoData() {
       customerName: "Rahul Sharma",
       customerEmail: "rahul@example.com",
       deviceType: "television",
+      deviceModel: "Samsung Smart TV",
       problem: "Smart TV keeps restarting randomly. Sometimes shows black screen.",
       address: "123 MG Road, Mumbai",
       phone: "+91 9876543210",
       status: "completed",
+      statusTimestamps: {
+        requested: "2026-09-25T11:00:00Z",
+        accepted: "2026-09-25T14:00:00Z",
+        "in-progress": "2026-09-26T10:00:00Z",
+        repaired: "2026-09-28T12:00:00Z",
+        completed: "2026-09-28T16:30:00Z"
+      },
+      price: "$250",
       technicianId: "tech-2",
       technicianName: "Technician B",
       createdAt: "2026-09-25T11:00:00Z",

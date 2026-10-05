@@ -75,10 +75,10 @@
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div class="form-group hidden" id="model-group-hero">
+              <div class="form-group" id="model-group-hero">
                 <label for="book-model-hero">Model</label>
-                <select id="book-model-hero" class="input" required>
-                  <option value="">Select model...</option>
+                <select id="book-model-hero" class="input" required disabled>
+                  <option value="">First select a device...</option>
                 </select>
               </div>
               <div class="form-group">
@@ -384,15 +384,18 @@
               <option value="other">Other</option>
             </select>
           </div>
-          <div class="form-group hidden" id="model-group">
+          <div class="form-group" id="model-group">
             <label for="book-model">Model</label>
-            <select id="book-model" class="input" required>
-              <option value="">Select model...</option>
+            <select id="book-model" class="input" required disabled>
+              <option value="">First select a device...</option>
             </select>
           </div>
           <div class="form-group">
             <label for="book-problem">Problem</label>
             <textarea id="book-problem" class="input input--textarea" required></textarea>
+          </div>
+          <div id="estimated-price-display" class="hidden" style="margin-bottom: 16px; padding: 12px; background: rgba(0, 122, 255, 0.1); border-radius: 8px; border: 1px solid rgba(0, 122, 255, 0.2); color: var(--ink-main);">
+            Estimated Price: <strong id="estimated-price-amount" style="font-size: 1.1em; color: var(--primary);"></strong>
           </div>
           <div class="form-group">
             <label for="book-address">Address</label>

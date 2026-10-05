@@ -57,6 +57,8 @@ router.post("/", verifyToken, async (req, res) => {
       address: address?.trim() || "",
       phone: phone?.trim() || "",
       status: "requested",
+      statusTimestamps: { requested: new Date().toISOString() },
+      price: null,
       technicianId: null,
       technicianName: null,
       createdAt: new Date(),
@@ -181,6 +183,8 @@ router.get("/track/:repairId", async (req, res) => {
         deviceModel: data.deviceModel,
         problem: data.problem,
         status: data.status,
+        statusTimestamps: data.statusTimestamps || {},
+        price: data.price || null,
         customerName: data.customerName,
         technicianName: data.technicianName,
         createdAt: data.createdAt?.toDate?.() || data.createdAt,
@@ -255,6 +259,7 @@ router.patch("/:id/accept", verifyToken, requireRole("technician", "admin"), asy
       status: "accepted",
       technicianId: req.user.uid,
       technicianName: techName,
+      "statusTimestamps.accepted": new Date().toISOString(),
       updatedAt: new Date(),
     });
 
@@ -298,10 +303,16 @@ router.patch("/:id/status", verifyToken, requireRole("technician", "admin"), asy
       });
     }
 
-    await docRef.update({
+    const updateData = {
       status,
+      [`statusTimestamps.${status}`]: new Date().toISOString(),
       updatedAt: new Date(),
-    });
+    };
+    if (req.body.price !== undefined) {
+      updateData.price = req.body.price;
+    }
+
+    await docRef.update(updateData);
 
     res.json({
       message: `Status updated to "${status}"`,
@@ -309,6 +320,32 @@ router.patch("/:id/status", verifyToken, requireRole("technician", "admin"), asy
     });
   } catch (err) {
     console.error("Update status error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/requests/:id/price
+ * Technician updates the price of a repair request.
+ */
+router.patch("/:id/price", verifyToken, requireRole("technician", "admin"), async (req, res) => {
+  try {
+    const { price } = req.body;
+    const docRef = db.collection("requests").doc(req.params.id);
+    const docSnap = await docRef.get();
+    
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    await docRef.update({
+      price,
+      updatedAt: new Date(),
+    });
+
+    res.json({ message: "Price updated", repairId: docSnap.data().repairId });
+  } catch (err) {
+    console.error("Update price error:", err);
     res.status(500).json({ error: err.message });
   }
 });
