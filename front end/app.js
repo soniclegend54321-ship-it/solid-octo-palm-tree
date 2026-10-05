@@ -16,12 +16,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDPlaceholderKeyHere",          // ← Replace with your real Firebase Web API key
+  apiKey: "AIzaSyD0RmhjB9TeIc647qyZ1GILfCrIfIYV53w",
   authDomain: "electronic-repair-hub.firebaseapp.com",
   projectId: "electronic-repair-hub",
-  storageBucket: "electronic-repair-hub.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:placeholder",
+  storageBucket: "electronic-repair-hub.firebasestorage.app",
+  messagingSenderId: "428669145314",
+  appId: "1:428669145314:web:5b6f7c2edf4dcd7b848ebb",
+  measurementId: "G-37QQCQ4QDN"
 };
 
 let firebaseApp, auth;
