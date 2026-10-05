@@ -26,7 +26,13 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const path = require("path");
-require("dotenv").config({ path: path.resolve(__dirname, "../.env/.env.txt") });
+const fs = require("fs");
+const dotenvPath = path.resolve(__dirname, "../.env/.env.txt");
+if (fs.existsSync(dotenvPath)) {
+  require("dotenv").config({ path: dotenvPath });
+} else {
+  require("dotenv").config();
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
