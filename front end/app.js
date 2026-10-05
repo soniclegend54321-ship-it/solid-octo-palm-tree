@@ -192,6 +192,8 @@ function navigateTo(pageName) {
 
   if (pageName === "dashboard" && currentUser) {
     loadDashboard();
+  } else if (pageName === "profile" && currentUser) {
+    loadProfile();
   }
 }
 
@@ -201,7 +203,7 @@ document.addEventListener("click", (e) => {
   if (trigger) {
     e.preventDefault();
     const page = trigger.dataset.page;
-    if (["dashboard", "book"].includes(page) && !currentUser) {
+    if (["dashboard", "book", "profile"].includes(page) && !currentUser) {
       showToast("Please log in first", "error");
       navigateTo("login");
       return;
@@ -300,8 +302,17 @@ window.addEventListener("scroll", () => {
 
 
 // ════════════════════════════════════════════════════════
-//  AUTH UI UPDATE
+//  AUTH UI UPDATE & HELPER
 // ════════════════════════════════════════════════════════
+function getInitials(name) {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+}
+
 function updateAuthUI(user) {
   if (user) {
     // User is signed in — show user menu, hide auth buttons
@@ -310,11 +321,7 @@ function updateAuthUI(user) {
 
     // Set initials in avatar
     const name = user.displayName || user.email || "U";
-    const parts = name.split(" ");
-    const initials = parts.length >= 2
-      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-      : name.substring(0, 2).toUpperCase();
-    userInitials.textContent = initials;
+    userInitials.textContent = getInitials(name);
 
     // Show/hide dashboard "New request" button based on role
     const dashNewBtn = $("#dash-new-repair");
@@ -346,9 +353,17 @@ if (auth) {
           currentUserRole = "customer";
         }
       }
+
+      // Auto-redirect from login/signup to dashboard if authenticated
+      if (currentPage === "login" || currentPage === "signup") {
+        navigateTo("dashboard");
+      }
     } else {
       idToken = null;
       currentUserRole = "customer";
+      if (["dashboard", "profile", "book"].includes(currentPage)) {
+        navigateTo("login");
+      }
     }
     updateAuthUI(user);
   });
@@ -509,6 +524,82 @@ if (logoutBtn) {
       navigateTo("home");
     } catch (err) {
       showToast("Logout failed", "error");
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  PROFILE PAGE LOGIC
+// ════════════════════════════════════════════════════════
+function loadProfile() {
+  if (!currentUser) {
+    navigateTo("login");
+    return;
+  }
+  const name = currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "User");
+  const initials = getInitials(name);
+  
+  const largeInitials = $("#profile-initials-large");
+  if (largeInitials) largeInitials.textContent = initials;
+
+  const nameDisplay = $("#profile-name-display");
+  if (nameDisplay) nameDisplay.textContent = name;
+
+  const nameInput = $("#profile-name-input");
+  if (nameInput) nameInput.value = name;
+
+  const emailInput = $("#profile-email-input");
+  if (emailInput) emailInput.value = currentUser.email || "";
+
+  const uidInput = $("#profile-uid-input");
+  if (uidInput) uidInput.value = currentUser.uid || "Local Demo User";
+
+  const roleSelect = $("#profile-role-select");
+  if (roleSelect) roleSelect.value = currentUserRole || "customer";
+
+  const roleBadge = $("#profile-role-badge");
+  if (roleBadge) {
+    roleBadge.textContent = (currentUserRole || "customer").toUpperCase();
+    roleBadge.className = `status-pill ${currentUserRole === "technician" ? "status-pill--in-progress" : "status-pill--accepted"}`;
+  }
+}
+
+const profileForm = $("#profile-form");
+if (profileForm) {
+  profileForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = $("#profile-name-input").value.trim();
+    const newRole = $("#profile-role-select").value;
+    const btn = $("#btn-save-profile");
+    if (btn) btn.classList.add("btn--loading");
+
+    try {
+      if (currentUser && auth) {
+        await updateProfile(currentUser, { displayName: newName });
+      }
+      currentUserRole = newRole;
+      if (currentUser) {
+        currentUser.displayName = newName;
+      }
+
+      if (backendAvailable && idToken) {
+        try {
+          await api("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({ name: newName, role: newRole }),
+          });
+        } catch (e) {
+          console.warn("Backend profile sync failed", e);
+        }
+      }
+
+      updateAuthUI(currentUser);
+      loadProfile();
+      showToast("Profile updated successfully!");
+    } catch (err) {
+      showToast(err.message || "Failed to update profile", "error");
+    } finally {
+      if (btn) btn.classList.remove("btn--loading");
     }
   });
 }
