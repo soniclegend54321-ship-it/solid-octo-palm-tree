@@ -11,8 +11,6 @@ import {
   onAuthStateChanged,
   signOut,
   updateProfile,
-  GoogleAuthProvider,
-  signInWithPopup,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -60,46 +58,6 @@ const toast = $("#toast");
 const nav = $("#main-nav");
 const burgerBtn = $("#burger-btn");
 const navLinksUl = $("#nav-links");
-
-// ════════════════════════════════════════════════════════
-//  DEVICE MODELS LOGIC
-// ════════════════════════════════════════════════════════
-const deviceModels = {
-  mobile: ["iPhone 13", "iPhone 14", "iPhone 15", "Galaxy S21", "Galaxy S23", "Pixel 7", "Pixel 8", "Other"],
-  laptop: ["MacBook Air", "MacBook Pro", "Dell XPS", "Lenovo ThinkPad", "HP Spectre", "Other"],
-  computer: ["Custom Build", "iMac", "Mac Studio", "HP Pavilion", "Dell Inspiron", "Other"],
-  television: ["Samsung Smart TV", "LG OLED", "Sony Bravia", "TCL Roku", "Other"],
-  other: ["Other"]
-};
-
-function populateModels(deviceSelectId, modelSelectId, groupSelectId) {
-  const deviceSelect = $(`#${deviceSelectId}`);
-  const modelSelect = $(`#${modelSelectId}`);
-  const modelGroup = $(`#${groupSelectId}`);
-  
-  if (!deviceSelect || !modelSelect || !modelGroup) return;
-  
-  deviceSelect.addEventListener("change", () => {
-    const device = deviceSelect.value;
-    modelSelect.innerHTML = '<option value="">Select model...</option>';
-    if (device && deviceModels[device]) {
-      modelGroup.classList.remove("hidden");
-      deviceModels[device].forEach(model => {
-        const opt = document.createElement("option");
-        opt.value = model;
-        opt.textContent = model;
-        modelSelect.appendChild(opt);
-      });
-    } else {
-      modelGroup.classList.add("hidden");
-    }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  populateModels("book-device", "book-model", "model-group");
-  populateModels("book-device-hero", "book-model-hero", "model-group-hero");
-});
 
 // ════════════════════════════════════════════════════════
 //  API HELPER
@@ -388,61 +346,6 @@ if (loginForm) {
   });
 }
 
-// ── Google Auth ──
-const handleGoogleAuth = async (defaultRole = "customer") => {
-  try {
-    if (!auth) throw new Error("Firebase not initialized");
-    const btnGoogleLogin = $("#btn-google-login");
-    const btnGoogleSignup = $("#btn-google-signup");
-    if (btnGoogleLogin) btnGoogleLogin.classList.add("btn--loading");
-    if (btnGoogleSignup) btnGoogleSignup.classList.add("btn--loading");
-    
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    idToken = await cred.user.getIdToken();
-    
-    if (backendAvailable) {
-      try {
-        await api("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ name: cred.user.displayName, role: defaultRole }),
-        });
-      } catch (e) {
-        // user might already be registered, that's fine.
-      }
-      try {
-        const data = await api("/auth/me");
-        currentUserRole = data.user?.role || defaultRole;
-      } catch {
-        currentUserRole = defaultRole;
-      }
-    }
-
-    currentUser = cred.user;
-    updateAuthUI(cred.user);
-    showToast(`Welcome, ${cred.user.displayName || cred.user.email}!`);
-    navigateTo("dashboard");
-  } catch (err) {
-    if (err.code !== "auth/popup-closed-by-user") {
-      showToast(err.message || "Google Authentication failed", "error");
-    }
-  } finally {
-    const btnGoogleLogin = $("#btn-google-login");
-    const btnGoogleSignup = $("#btn-google-signup");
-    if (btnGoogleLogin) btnGoogleLogin.classList.remove("btn--loading");
-    if (btnGoogleSignup) btnGoogleSignup.classList.remove("btn--loading");
-  }
-};
-
-const btnGoogleLogin = $("#btn-google-login");
-if (btnGoogleLogin) btnGoogleLogin.addEventListener("click", () => handleGoogleAuth("customer"));
-
-const btnGoogleSignup = $("#btn-google-signup");
-if (btnGoogleSignup) btnGoogleSignup.addEventListener("click", () => {
-  const role = $("#signup-role")?.value || "customer";
-  handleGoogleAuth(role);
-});
-
 // ── Log Out ──
 const logoutBtn = $("#btn-logout");
 if (logoutBtn) {
@@ -479,7 +382,6 @@ if (bookForm) {
     }
 
     const deviceType = $("#book-device").value;
-    const deviceModel = $("#book-model").value;
     const problem = $("#book-problem").value.trim();
     const address = $("#book-address").value.trim();
     const phone = $("#book-phone").value.trim();
@@ -493,7 +395,7 @@ if (bookForm) {
         // ── Call backend API ──
         const data = await api("/requests", {
           method: "POST",
-          body: JSON.stringify({ deviceType, deviceModel, problem, address, phone }),
+          body: JSON.stringify({ deviceType, problem, address, phone }),
         });
         showToast(`Repair request ${data.request.repairId} submitted!`);
       } else {
@@ -506,7 +408,6 @@ if (bookForm) {
           customerName: currentUser?.displayName || "Demo User",
           customerEmail: currentUser?.email || "demo@example.com",
           deviceType,
-          deviceModel,
           problem,
           address,
           phone,
@@ -623,7 +524,7 @@ if (trackBtn) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
             <div>
               <label style="color:var(--ink-muted);font-size:14px;display:block;margin-bottom:4px;">Device</label>
-              <p style="margin:0;font-weight:500;"><i data-lucide="${deviceIcons[found.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${found.deviceType?.charAt(0).toUpperCase() + found.deviceType?.slice(1)}${found.deviceModel ? ` (${found.deviceModel})` : ''}</p>
+              <p style="margin:0;font-weight:500;"><i data-lucide="${deviceIcons[found.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${found.deviceType?.charAt(0).toUpperCase() + found.deviceType?.slice(1)}</p>
             </div>
             <div>
               <label style="color:var(--ink-muted);font-size:14px;display:block;margin-bottom:4px;">Customer</label>
@@ -757,7 +658,7 @@ function renderRequestCard(r, showAccept = false) {
     return `
         < tr >
         <td><strong>${r.repairId}</strong></td>
-        <td><i data-lucide="${deviceIcons[r.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${r.deviceType?.charAt(0).toUpperCase() + r.deviceType?.slice(1)}${r.deviceModel ? ` (${r.deviceModel})` : ''}</td>
+        <td><i data-lucide="${deviceIcons[r.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${r.deviceType?.charAt(0).toUpperCase() + r.deviceType?.slice(1)}</td>
         <td>${r.problem}</td>
         <td>${createdDate}</td>
         <td>
@@ -770,7 +671,7 @@ function renderRequestCard(r, showAccept = false) {
   return `
         < tr >
       <td><strong>${r.repairId}</strong></td>
-      <td><i data-lucide="${deviceIcons[r.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${r.deviceType?.charAt(0).toUpperCase() + r.deviceType?.slice(1)}${r.deviceModel ? ` (${r.deviceModel})` : ''}</td>
+      <td><i data-lucide="${deviceIcons[r.deviceType] || 'wrench'}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> ${r.deviceType?.charAt(0).toUpperCase() + r.deviceType?.slice(1)}</td>
       <td>
         <span class="${getStatusBadgeClass(r.status)}">${STATUS_LABELS[r.status] || r.status}</span>
       </td>
@@ -975,23 +876,16 @@ if (bookFormHero) {
       return;
     }
     const deviceType = $("#book-device-hero").value;
-    const deviceModel = $("#book-model-hero").value;
     const problem = $("#book-problem-hero").value.trim();
 
     // Store temporarily and redirect to book page
     sessionStorage.setItem("draftDevice", deviceType);
-    sessionStorage.setItem("draftDeviceModel", deviceModel);
     sessionStorage.setItem("draftProblem", problem);
 
     navigateTo("book");
     const mainDeviceSelect = $("#book-device");
-    const mainModelSelect = $("#book-model");
     const mainProblemArea = $("#book-problem");
-    if (mainDeviceSelect) {
-      mainDeviceSelect.value = deviceType;
-      mainDeviceSelect.dispatchEvent(new Event("change"));
-    }
-    if (mainModelSelect) mainModelSelect.value = deviceModel;
+    if (mainDeviceSelect) mainDeviceSelect.value = deviceType;
     if (mainProblemArea) mainProblemArea.value = problem;
   });
 }

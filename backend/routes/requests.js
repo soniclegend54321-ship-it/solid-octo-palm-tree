@@ -43,7 +43,7 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(400).json({ errors });
     }
 
-    const { deviceType, problem, address, phone } = req.body;
+    const { deviceType, deviceModel, problem, address, phone } = req.body;
     const repairId = generateRepairId();
 
     const requestData = {
@@ -52,6 +52,7 @@ router.post("/", verifyToken, async (req, res) => {
       customerName: req.user.name || req.user.email || "Customer",
       customerEmail: req.user.email,
       deviceType,
+      deviceModel: deviceModel?.trim() || "",
       problem: problem.trim(),
       address: address?.trim() || "",
       phone: phone?.trim() || "",
@@ -177,6 +178,7 @@ router.get("/track/:repairId", async (req, res) => {
       request: {
         repairId: data.repairId,
         deviceType: data.deviceType,
+        deviceModel: data.deviceModel,
         problem: data.problem,
         status: data.status,
         customerName: data.customerName,

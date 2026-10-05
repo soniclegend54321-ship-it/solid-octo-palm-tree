@@ -1,0 +1,6 @@
+# Proxy API requests to your Render backend
+# IMPORTANT: Replace the URL below with your actual Render web service URL!
+/api/*  https://your-render-app.onrender.com/api/:splat  200
+
+# SPA fallback: redirect all other traffic to index.html
+/*  /index.html  200
